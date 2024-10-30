@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <WS2812FX.h>
+#include <vector>
 
 #define LED_COUNT 193
 #define LED_PIN 11
@@ -29,9 +30,10 @@ WS2812FX ws2812fx = WS2812FX(LED_COUNT, LED_PIN, NEO_RGB + NEO_KHZ800);
 
 unsigned long last_change = 0;
 unsigned long now = 0;
-uint8_t last_mode = 0;
-uint8_t selectedMode = last_mode;
+uint8_t selectedMode = 0;
 int colorWheelValues[] = {0, 50, 100, 150, 200, 250};
+
+std::vector<int> usedModes;
 
 void setup()
 {
@@ -59,19 +61,25 @@ void loop()
 
   if (now - last_change > TIMER_MS)
   {
-    randomSeed(analogRead(A0));
     int randomIndex = random(0, 6);
     uint32_t color = ws2812fx.color_wheel(colorWheelValues[randomIndex]);
     LOG_PRINTLN("Color: " + String(color));
     ws2812fx.setColor(color);
-    /* while (selectedMode == last_mode)
+
+    // Reset usedModes if all modes have been used
+    if (usedModes.size() >= ws2812fx.getModeCount() - 8)
     {
-      randomSeed(analogRead(A0));
-      // exclude the last 8 custom modes
-      selectedMode = random(0, ws2812fx.getModeCount() - 8);
+      usedModes.clear();
     }
-    last_mode = selectedMode; */
-    selectedMode = (ws2812fx.getMode() + 1) % (ws2812fx.getModeCount() - 8);
+
+    // Select a new mode that hasn't been used yet
+    do
+    {
+      selectedMode = random(0, ws2812fx.getModeCount() - 8);
+    } while (std::find(usedModes.begin(), usedModes.end(), selectedMode) != usedModes.end());
+    usedModes.push_back(selectedMode);
+
+    // selectedMode = (ws2812fx.getMode() + 1) % (ws2812fx.getModeCount() - 8);
     LOG_PRINTLN("Mode: " + String(selectedMode));
     ws2812fx.setMode(selectedMode);
     last_change = now;
