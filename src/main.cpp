@@ -1,9 +1,25 @@
 #include <Arduino.h>
 #include <WS2812FX.h>
 #include <vector>
+#include <algorithm>
 
+#ifdef ESP8266
+#include <ESP8266WiFi.h>
+#endif
+
+// Defaults can be overridden per board with build_flags in platformio.ini
+#ifndef LED_COUNT
 #define LED_COUNT 193
+#endif
+#ifndef LED_PIN
 #define LED_PIN 11
+#endif
+#ifndef LED_COLOR_ORDER
+#define LED_COLOR_ORDER NEO_RGB
+#endif
+#ifndef LED_BRIGHTNESS
+#define LED_BRIGHTNESS 255
+#endif
 
 #define TIMER_MS 20000
 
@@ -26,7 +42,7 @@
 //   NEO_GRB     Pixels are wired for GRB bitstream (most NeoPixel products)
 //   NEO_RGB     Pixels are wired for RGB bitstream (v1 FLORA pixels, not v2)
 //   NEO_RGBW    Pixels are wired for RGBW bitstream (NeoPixel RGBW products)
-WS2812FX ws2812fx = WS2812FX(LED_COUNT, LED_PIN, NEO_RGB + NEO_KHZ800);
+WS2812FX ws2812fx = WS2812FX(LED_COUNT, LED_PIN, LED_COLOR_ORDER + NEO_KHZ800);
 
 unsigned long last_change = 0;
 unsigned long now = 0;
@@ -40,8 +56,14 @@ void setup()
   LOG_INIT();
   LOG_PRINTLN("Setup started");
 
+#ifdef ESP8266
+  // Wi-Fi interrupts disturb the WS2812 signal timing and it isn't used here
+  WiFi.mode(WIFI_OFF);
+  WiFi.forceSleepBegin();
+#endif
+
   ws2812fx.init();
-  ws2812fx.setBrightness(255);
+  ws2812fx.setBrightness(LED_BRIGHTNESS);
   ws2812fx.setSpeed(1000);
   // generate a random color
   randomSeed(analogRead(A0));
