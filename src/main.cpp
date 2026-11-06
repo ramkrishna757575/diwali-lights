@@ -44,12 +44,39 @@
 //   NEO_RGBW    Pixels are wired for RGBW bitstream (NeoPixel RGBW products)
 WS2812FX ws2812fx = WS2812FX(LED_COUNT, LED_PIN, LED_COLOR_ORDER + NEO_KHZ800);
 
+#ifdef ESP8266
+// These need more memory than the Arduino boards have
+#include "DiwaliPatterns.h"
+#endif
+
 unsigned long last_change = 0;
 unsigned long now = 0;
 uint8_t selectedMode = 0;
 int colorWheelValues[] = {0, 50, 100, 150, 200, 250};
 
 std::vector<int> usedModes;
+
+#ifdef ESP8266
+std::vector<int> usedPatterns;
+bool showDiwaliPattern = false;
+#endif
+
+// Picks a random number below count, using all of them before any repeats
+int pickUnused(std::vector<int> &used, int count)
+{
+  if ((int)used.size() >= count)
+  {
+    used.clear();
+  }
+
+  int picked;
+  do
+  {
+    picked = random(0, count);
+  } while (std::find(used.begin(), used.end(), picked) != used.end());
+  used.push_back(picked);
+  return picked;
+}
 
 void setup()
 {
@@ -88,18 +115,22 @@ void loop()
     LOG_PRINTLN("Color: " + String(color));
     ws2812fx.setColor(color);
 
-    // Reset usedModes if all modes have been used
-    if (usedModes.size() >= ws2812fx.getModeCount() - 8)
+#ifdef ESP8266
+    // Alternate with the built-in modes, which would otherwise outnumber these
+    showDiwaliPattern = !showDiwaliPattern;
+    if (showDiwaliPattern)
     {
-      usedModes.clear();
+      const DiwaliPattern &pattern = diwaliPatterns[pickUnused(usedPatterns, DIWALI_PATTERN_COUNT)];
+      LOG_PRINTLN("Pattern: " + String(pattern.name));
+      ws2812fx.setCustomMode(pattern.run);
+      ws2812fx.setMode(FX_MODE_CUSTOM);
+      last_change = now;
+      return;
     }
+#endif
 
     // Select a new mode that hasn't been used yet
-    do
-    {
-      selectedMode = random(0, ws2812fx.getModeCount() - 8);
-    } while (std::find(usedModes.begin(), usedModes.end(), selectedMode) != usedModes.end());
-    usedModes.push_back(selectedMode);
+    selectedMode = pickUnused(usedModes, ws2812fx.getModeCount() - 8);
 
     // selectedMode = (ws2812fx.getMode() + 1) % (ws2812fx.getModeCount() - 8);
     LOG_PRINTLN("Mode: " + String(selectedMode));
