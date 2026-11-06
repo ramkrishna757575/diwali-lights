@@ -57,11 +57,39 @@ NeoPixelBus<NeoGrbFeature, NeoEsp8266Uart1Ws2812xMethod> strip(LED_COUNT);
 
 bool wifiLogged = false;
 
+// Each color channel draws up to 20mA, and the supply must also cover the
+// board and the LEDs' idle draw. Frames that would exceed this budget are
+// dimmed together, so sparse patterns can run brighter than a full white one.
+#ifndef LED_MAX_MA
+#define LED_MAX_MA 3300
+#endif
+
 void showStrip(void)
 {
   if (strip.CanShow())
   {
-    memcpy(strip.Pixels(), ws2812fx.getPixels(), strip.PixelsSize());
+    uint8_t *out = strip.Pixels();
+    const uint8_t *in = ws2812fx.getPixels();
+    size_t size = strip.PixelsSize();
+
+    uint32_t total = 0;
+    for (size_t i = 0; i < size; i++)
+    {
+      total += in[i];
+    }
+    uint32_t limit = (uint32_t)LED_MAX_MA * 255 / 20;
+    if (total > limit)
+    {
+      uint32_t scale = (uint64_t)limit * 256 / total;
+      for (size_t i = 0; i < size; i++)
+      {
+        out[i] = (in[i] * scale) >> 8;
+      }
+    }
+    else
+    {
+      memcpy(out, in, size);
+    }
     strip.Dirty();
     strip.Show();
   }
