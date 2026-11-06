@@ -4,7 +4,10 @@
 #include <algorithm>
 
 #ifdef ESP8266
+#include <ArduinoOTA.h>
 #include <ESP8266WiFi.h>
+#include <NeoPixelBus.h>
+#include "secrets.h"
 #endif
 
 // Defaults can be overridden per board with build_flags in platformio.ini
@@ -47,6 +50,22 @@ WS2812FX ws2812fx = WS2812FX(LED_COUNT, LED_PIN, LED_COLOR_ORDER + NEO_KHZ800);
 #ifdef ESP8266
 // These need more memory than the Arduino boards have
 #include "DiwaliPatterns.h"
+
+// Bit-banged LED data can't run alongside Wi-Fi, so send it with the UART1
+// hardware instead. That is fixed to GPIO2, and this must match LED_COLOR_ORDER.
+NeoPixelBus<NeoGrbFeature, NeoEsp8266Uart1Ws2812xMethod> strip(LED_COUNT);
+
+bool wifiLogged = false;
+
+void showStrip(void)
+{
+  if (strip.CanShow())
+  {
+    memcpy(strip.Pixels(), ws2812fx.getPixels(), strip.PixelsSize());
+    strip.Dirty();
+    strip.Show();
+  }
+}
 #endif
 
 unsigned long last_change = 0;
@@ -79,16 +98,30 @@ void setup()
   LOG_PRINTLN("Setup started");
 
 #ifdef ESP8266
-  // Wi-Fi interrupts disturb the WS2812 signal timing and it isn't used here
-  WiFi.mode(WIFI_OFF);
-  WiFi.forceSleepBegin();
+  // Connects in the background, so the lights still run without a network
+  WiFi.mode(WIFI_STA);
+  WiFi.hostname("diwali-lights");
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  ArduinoOTA.setHostname("diwali-lights");
+  ArduinoOTA.setPassword(OTA_PASSWORD);
+  ArduinoOTA.begin();
 #endif
 
   ws2812fx.init();
+#ifdef ESP8266
+  // Has to come after init() so that GPIO2 ends up set for UART1
+  strip.Begin();
+  ws2812fx.setCustomShow(showStrip);
+#endif
   ws2812fx.setBrightness(LED_BRIGHTNESS);
   ws2812fx.setSpeed(1000);
   // generate a random color
+#ifdef ESP8266
+  // A0 reads the same on every boot here, which would repeat the same order
+  randomSeed(RANDOM_REG32);
+#else
   randomSeed(analogRead(A0));
+#endif
   int randomIndex = random(0, 6);
   uint32_t color = ws2812fx.color_wheel(colorWheelValues[randomIndex]);
   LOG_PRINTLN("Color: " + String(color));
@@ -100,6 +133,15 @@ void setup()
 void loop()
 {
   now = millis();
+
+#ifdef ESP8266
+  ArduinoOTA.handle();
+  if (!wifiLogged && WiFi.status() == WL_CONNECTED)
+  {
+    LOG_PRINTLN("Wi-Fi connected: " + WiFi.localIP().toString());
+    wifiLogged = true;
+  }
+#endif
 
   ws2812fx.service();
 
