@@ -24,7 +24,7 @@
 #define LED_BRIGHTNESS 255
 #endif
 
-#define TIMER_MS 20000
+#define TIMER_MS 30000
 
 // Uncomment the following line to enable debug logging
 #define DEBUG
