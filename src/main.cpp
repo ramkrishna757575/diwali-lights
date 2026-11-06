@@ -56,11 +56,6 @@ int colorWheelValues[] = {0, 50, 100, 150, 200, 250};
 
 std::vector<int> usedModes;
 
-#ifdef ESP8266
-std::vector<int> usedPatterns;
-bool showDiwaliPattern = false;
-#endif
-
 // Picks a random number below count, using all of them before any repeats
 int pickUnused(std::vector<int> &used, int count)
 {
@@ -115,22 +110,24 @@ void loop()
     LOG_PRINTLN("Color: " + String(color));
     ws2812fx.setColor(color);
 
+    // Select a new mode that hasn't been used yet
+    int builtInCount = ws2812fx.getModeCount() - 8;
 #ifdef ESP8266
-    // Alternate with the built-in modes, which would otherwise outnumber these
-    showDiwaliPattern = !showDiwaliPattern;
-    if (showDiwaliPattern)
+    // The Diwali patterns share the shuffle, numbered after the built-in modes
+    int picked = pickUnused(usedModes, builtInCount + DIWALI_PATTERN_COUNT);
+    if (picked >= builtInCount)
     {
-      const DiwaliPattern &pattern = diwaliPatterns[pickUnused(usedPatterns, DIWALI_PATTERN_COUNT)];
+      const DiwaliPattern &pattern = diwaliPatterns[picked - builtInCount];
       LOG_PRINTLN("Pattern: " + String(pattern.name));
       ws2812fx.setCustomMode(pattern.run);
       ws2812fx.setMode(FX_MODE_CUSTOM);
       last_change = now;
       return;
     }
+    selectedMode = picked;
+#else
+    selectedMode = pickUnused(usedModes, builtInCount);
 #endif
-
-    // Select a new mode that hasn't been used yet
-    selectedMode = pickUnused(usedModes, ws2812fx.getModeCount() - 8);
 
     // selectedMode = (ws2812fx.getMode() + 1) % (ws2812fx.getModeCount() - 8);
     LOG_PRINTLN("Mode: " + String(selectedMode));
