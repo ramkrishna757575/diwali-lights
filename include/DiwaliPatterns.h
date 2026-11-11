@@ -445,19 +445,20 @@ struct DiwaliPattern
 {
     const char *name;
     uint16_t (*run)(void);
+    uint8_t seconds; // how long it runs, enough to cross 600 LEDs
 };
 
 static const DiwaliPattern diwaliPatterns[] = {
-    {"Diyas", diyas},
-    {"Toran", toran},
-    {"Rangoli", rangoli},
-    {"Lotus", lotus},
-    {"Silk", silk},
-    {"Center out rainbow", centerOutRainbow},
-    {"Meteors", meteors},
-    {"Fireworks", fireworks},
-    {"Anar", anar},
-    {"Sparkler", sparkler},
+    {"Diyas", diyas, 20},
+    {"Toran", toran, 20},
+    {"Rangoli", rangoli, 20},
+    {"Lotus", lotus, 20},
+    {"Silk", silk, 20},
+    {"Center out rainbow", centerOutRainbow, 20},
+    {"Meteors", meteors, 30},
+    {"Fireworks", fireworks, 30},
+    {"Anar", anar, 20},
+    {"Sparkler", sparkler, 40},
 };
 
 #define DIWALI_PATTERN_COUNT COLOR_COUNT(diwaliPatterns)

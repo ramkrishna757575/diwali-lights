@@ -24,7 +24,10 @@
 #define LED_BRIGHTNESS 255
 #endif
 
-#define TIMER_MS 30000
+// Every animation runs at least this long, then until its current cycle ends
+#define TIMER_MS 20000
+// A cycle that never ends is cut off here
+#define MAX_TIMER_MS 45000
 
 // Uncomment the following line to enable debug logging
 #define DEBUG
@@ -97,6 +100,8 @@ void showStrip(void)
 #endif
 
 unsigned long last_change = 0;
+// Patterns with their own run time set this; 0 means wait for the cycle to end
+unsigned long fixed_ms = 0;
 unsigned long now = 0;
 uint8_t selectedMode = 0;
 int colorWheelValues[] = {0, 50, 100, 150, 200, 250};
@@ -173,7 +178,10 @@ void loop()
 
   ws2812fx.service();
 
-  if (now - last_change > TIMER_MS)
+  unsigned long elapsed = now - last_change;
+  bool due = fixed_ms ? elapsed > fixed_ms
+                      : elapsed > TIMER_MS && (ws2812fx.isCycle() || elapsed > MAX_TIMER_MS);
+  if (due)
   {
     int randomIndex = random(0, 6);
     uint32_t color = ws2812fx.color_wheel(colorWheelValues[randomIndex]);
@@ -189,12 +197,14 @@ void loop()
     {
       const DiwaliPattern &pattern = diwaliPatterns[picked - builtInCount];
       LOG_PRINTLN("Pattern: " + String(pattern.name));
+      fixed_ms = pattern.seconds * 1000UL;
       ws2812fx.setCustomMode(pattern.run);
       ws2812fx.setMode(FX_MODE_CUSTOM);
       last_change = now;
       return;
     }
     selectedMode = picked;
+    fixed_ms = 0;
 #else
     selectedMode = pickUnused(usedModes, builtInCount);
 #endif
